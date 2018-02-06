@@ -58,7 +58,7 @@ public class Agent {
 		}
 	}
 
-	public static void tranform() {
+	public static void tranform(String targetDir) {
 		G.reset();
 		Transform transform = new Transform("wjtp.analysis", new SceneTransformer() {
 			@Override
@@ -116,9 +116,9 @@ public class Agent {
 		// Scene.v().forceResolve("java.beans.XMLEncoder", SootClass.HIERARCHY);
 
 		PackManager.v().getPack("wjtp").add(transform);
-		String targetDir = "C:\\Users\\karth\\git\\visuflow-uitests-analysis\\bin";
 		File src = new File(targetDir);
-		File sootOutput = new File("sootOutput");
+		File parent = src.getParentFile();
+		File sootOutput = new File(parent, "sootOutput");
 		try {
 			FileUtils.copyDirectory(src, sootOutput);
 		} catch (IOException e) {
@@ -126,12 +126,15 @@ public class Agent {
 			e.printStackTrace();
 		}
 		Main.main(new String[] { "-pp", "-process-dir", targetDir, "-w", "-exclude", "javax", "-allow-phantom-refs",
-				"-no-bodies-for-excluded", "-src-prec", "only-class", "-output-format", "J", "-p", "jb",
-				"use-original-names:true", "-keep-line-number", });
+				"-output-dir", sootOutput.getAbsolutePath(), "-no-bodies-for-excluded", "-src-prec", "only-class",
+				"-output-format", "J", "-p", "jb", "use-original-names:true", "-keep-line-number", });
 	}
 
+	// java -cp "..\sootOutput" -javaagent:"C:\Projects\Java\Reviser
+	// Workspace\SootAgent\target\HelloWorldAgent-0.0.1-SNAPSHOT-jar-with-dependencies.jar=C:\Users\karth\git\visuflow-uitests-analysis\bin"
+	// de.visuflow.ex2.MainClass
 	public static void premain(String agentArgs, Instrumentation inst) {
-		tranform();
+		tranform(agentArgs);
 	}
 
 	private static void enhanceMethod(List<ClassData> classData) {
@@ -179,22 +182,22 @@ public class Agent {
 						List<Tag> ifStmts = unit.getTags().stream().filter(x -> x.getName().equals("ConditionTag"))
 								.collect(Collectors.toList());
 						for (Tag tag : ifStmts) {
-							ConditionTag conditionTag = (ConditionTag)tag;
+							ConditionTag conditionTag = (ConditionTag) tag;
 							Unit ifStmt = conditionTag.getIfStmt();
 							int boolIntValue = (conditionTag.getBranch()) ? 1 : 0;
 							Unit branch = Jimple.v().newAssignStmt(conditionRef,
 									DIntConstant.v(boolIntValue, BooleanType.v()));
-							Unit lineNumberObjVal = Jimple.v().newAssignStmt(boolRef,
-									Jimple.v().newStaticInvokeExpr(Scene.v()
-											.getMethod("<java.lang.Boolean: java.lang.Boolean valueOf(boolean)>").makeRef(),
-											conditionRef));
+							Unit lineNumberObjVal = Jimple.v().newAssignStmt(boolRef, Jimple.v()
+									.newStaticInvokeExpr(Scene.v()
+											.getMethod("<java.lang.Boolean: java.lang.Boolean valueOf(boolean)>")
+											.makeRef(), conditionRef));
 
 							Unit jimpleVal = Jimple.v().newAssignStmt(jimpleRep, StringConstant.v(ifStmt.toString()));
 
 							Unit lineNumberAdd = Jimple.v()
 									.newInvokeStmt(Jimple.v().newVirtualInvokeExpr(mapLocal, Scene.v().getMethod(
 											"<java.util.HashMap: java.lang.Object put(java.lang.Object,java.lang.Object)>")
-											.makeRef(), jimpleRep,boolRef));
+											.makeRef(), jimpleRep, boolRef));
 
 							units.insertBefore(branch, unit);
 							units.insertAfter(lineNumberObjVal, branch);
@@ -215,9 +218,9 @@ public class Agent {
 								Jimple.v().newNewExpr(RefType.v("AnalysisInfoTag")));
 
 						Unit analysisInfoTagInit = Jimple.v()
-								.newInvokeStmt(Jimple.v().newSpecialInvokeExpr(analysisTagLocal, Scene.v()
-										.getMethod("<AnalysisInfoTag: void <init>(AnalysisInfo)>")
-										.makeRef(), analysisInfoLocal));
+								.newInvokeStmt(Jimple.v().newSpecialInvokeExpr(analysisTagLocal,
+										Scene.v().getMethod("<AnalysisInfoTag: void <init>(AnalysisInfo)>").makeRef(),
+										analysisInfoLocal));
 
 						Unit setClassName = Jimple.v()
 								.newInvokeStmt(Jimple.v().newVirtualInvokeExpr(analysisInfoLocal, Scene.v()
