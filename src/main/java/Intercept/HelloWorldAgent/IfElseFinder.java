@@ -23,20 +23,28 @@ public class IfElseFinder extends ForwardFlowAnalysis<Unit, Set<FlowAbstraction>
 	@Override
 	protected void flowThrough(Set<FlowAbstraction> in, Unit d, Set<FlowAbstraction> out) {
 		List<Unit> preds = graph.getPredsOf(d);
+		boolean isIfPred = false;
 		for (Unit pred : preds) {
 			if (pred instanceof IfStmt) {
+				isIfPred = true;
 				IfStmt ifStmt = (IfStmt) pred;
+				if (d.toString().equals("expr = (soot.jimple.internal.AbstractBinopExpr) rightSide")) {
+					System.out.println(d);
+
+				}
 				if (ifStmt.getTarget().equals(d)) {
 					out.add(new FlowAbstraction(ifStmt, true));
-					d.addTag(new ConditionTag(ifStmt, true));
 				} else if (graph.getSuccsOf(ifStmt).contains(d)) {
 					out.add(new FlowAbstraction(ifStmt, false));
-					d.addTag(new ConditionTag(ifStmt, false));
 				}
 			}
 		}
 		out.addAll(in);
-
+		if (isIfPred) {
+			for (FlowAbstraction flow : out) {
+				d.addTag(new ConditionTag(flow.getSource(), flow.isTrue()));
+			}
+		}
 		// System.out.printf("The unit is |%s|\n", d);
 		//
 		// for (FlowAbstraction flow : out) {
@@ -81,7 +89,5 @@ public class IfElseFinder extends ForwardFlowAnalysis<Unit, Set<FlowAbstraction>
 	public Set<FlowAbstraction> getResults(Unit d) {
 		return getFlowAfter(d);
 	}
-
-	
 
 }
