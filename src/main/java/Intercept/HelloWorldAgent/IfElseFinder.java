@@ -3,6 +3,8 @@ package Intercept.HelloWorldAgent;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
+
 import soot.Body;
 import soot.SootMethod;
 import soot.Unit;
@@ -45,13 +47,6 @@ public class IfElseFinder extends ForwardFlowAnalysis<Unit, Set<FlowAbstraction>
 				d.addTag(new ConditionTag(flow.getSource(), flow.isTrue()));
 			}
 		}
-		// System.out.printf("The unit is |%s|\n", d);
-		//
-		// for (FlowAbstraction flow : out) {
-		// System.out.printf("The if Stmt is |%s|\nThe boolean is %b\n",
-		// flow.getSource(), flow.isTrue());
-		// }
-		// System.out.println("--------------------------------------------------------------------");
 	}
 
 	@Override
@@ -66,9 +61,13 @@ public class IfElseFinder extends ForwardFlowAnalysis<Unit, Set<FlowAbstraction>
 
 	@Override
 	protected void merge(Set<FlowAbstraction> in1, Set<FlowAbstraction> in2, Set<FlowAbstraction> out) {
+		out.clear();
 		for (FlowAbstraction flow1 : in1) {
 			for (FlowAbstraction flow2 : in2) {
-				if (flow1.getSource() == flow2.getSource() && flow1.isTrue() == flow2.isTrue()) {
+				if (flow1.getSource() == flow2.getSource() && flow1.isTrue() != flow2.isTrue()) {
+					continue;
+				} else {
+					out.add(flow1);
 					out.add(flow2);
 				}
 			}
@@ -88,6 +87,31 @@ public class IfElseFinder extends ForwardFlowAnalysis<Unit, Set<FlowAbstraction>
 
 	public Set<FlowAbstraction> getResults(Unit d) {
 		return getFlowAfter(d);
+	}
+	
+	public FlowAbstraction getNearestIfStmt(Unit unit) {
+		System.out.println("Unit is " + unit);
+		Set<FlowAbstraction> conditionsAfter = getFlowAfter(unit);
+		if (conditionsAfter.size() == 1) {
+			System.out.printf("Nearest if ==>%s and bool is %b\n",
+					conditionsAfter.stream().findFirst().get().getSource(),
+					conditionsAfter.stream().findFirst().get().isTrue());
+			return conditionsAfter.stream().findFirst().get();
+		} else {
+
+			for (FlowAbstraction condition : conditionsAfter) {
+				Set<FlowAbstraction> conditions = getFlowAfter(condition.getSource());
+				List<FlowAbstraction> difference = conditionsAfter.stream().filter(x -> !conditions.contains(x))
+						.collect(Collectors.toList());
+				if (difference.size() == 1 && difference.contains(condition)) {
+					System.out.printf("Nearest if ==>%s and condition is %b\n", condition.getSource(),
+							condition.isTrue());
+					return condition;
+				}
+			}
+
+		}
+		return null;
 	}
 
 }

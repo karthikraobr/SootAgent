@@ -28,6 +28,7 @@ import soot.util.*;
 import java.io.*;
 import heros.InterproceduralCFG;
 
+
 public class Agent {
 
 	public static void findReachableMethods(SootMethod source, InterproceduralCFG<Unit, SootMethod> icfg,
@@ -462,6 +463,26 @@ public class Agent {
 		getNameUnits.add(Jimple.v().newAssignStmt(retVal, StringConstant.v(sClass.getName())));
 		getNameUnits.add(Jimple.v().newReturnStmt(retVal));
 
+		
+		SootMethod getAnalysisInfo = new SootMethod("getAnalysisInfo", Arrays.asList(new Type[] {}),
+				RefType.v("AnalysisInfo"), Modifier.PUBLIC);
+		sClass.addMethod(getAnalysisInfo);
+		JimpleBody getAnalysisInfoBody = Jimple.v().newBody(getAnalysisInfo);
+		getAnalysisInfo.setActiveBody(getAnalysisInfoBody);
+		PatchingChain<Unit> getAnalysisInfoUnits = getAnalysisInfoBody.getUnits();
+		Local getAnalysisInfoSelf, getAnalysisInfoVar;
+		getAnalysisInfoSelf = Jimple.v().newLocal("getAnalysisInfoSelf", RefType.v(sClass.getName()));
+		getAnalysisInfoBody.getLocals().add(getAnalysisInfoSelf);
+		getAnalysisInfoVar = Jimple.v().newLocal("getAnalysisInfoVar", RefType.v("AnalysisInfo"));
+		getAnalysisInfoBody.getLocals().add(getAnalysisInfoVar);
+		getAnalysisInfoUnits.add(Jimple.v().newIdentityStmt(getAnalysisInfoSelf, Jimple.v().newThisRef(sClass.getType())));
+		getAnalysisInfoUnits.add(Jimple.v().newAssignStmt(getAnalysisInfoVar,
+				Jimple.v().newInstanceFieldRef(getAnalysisInfoSelf, analysisInfoField.makeRef())));
+		getAnalysisInfoUnits.add(Jimple.v().newReturnStmt(getAnalysisInfoVar));
+		
+		
+		
+		
 		SootMethod getValue = new SootMethod("getValue", Arrays.asList(new Type[] {}), ArrayType.v(ByteType.v(), 1),
 				Modifier.PUBLIC,
 				Arrays.asList(new SootClass[] { Scene.v().getSootClass("soot.tagkit.AttributeValueException") }));
@@ -523,12 +544,12 @@ public class Agent {
 		getValueBody.getTraps()
 				.add(Jimple.v().newTrap(Scene.v().getSootClass("java.io.IOException"), label1, label2, label3));
 
-		SootMethod getAnalysisInfo = new SootMethod("toString", Arrays.asList(new Type[] {}),
+		SootMethod toString = new SootMethod("toString", Arrays.asList(new Type[] {}),
 				RefType.v("java.lang.String"), Modifier.PUBLIC);
-		sClass.addMethod(getAnalysisInfo);
-		JimpleBody getAnalysisInfoBody = Jimple.v().newBody(getAnalysisInfo);
-		getAnalysisInfo.setActiveBody(getAnalysisInfoBody);
-		PatchingChain<Unit> getAnalysisInfoUnits = getAnalysisInfoBody.getUnits();
+		sClass.addMethod(toString);
+		JimpleBody toStringBody = Jimple.v().newBody(toString);
+		toString.setActiveBody(toStringBody);
+		PatchingChain<Unit> toStringUnits = toStringBody.getUnits();
 		Local analysiInfoTag, str, byteArrayOutputStream, xmlEncoder, analysisInfo1;
 		analysiInfoTag = Jimple.v().newLocal("analysiInfoTag", RefType.v("AnalysisInfoTag"));
 		str = Jimple.v().newLocal("str", RefType.v("java.lang.String"));
@@ -537,16 +558,16 @@ public class Agent {
 		xmlEncoder = Jimple.v().newLocal("xmlEncoder", RefType.v("java.beans.XMLEncoder "));
 		analysisInfo1 = Jimple.v().newLocal("analysisInfo1", RefType.v("AnalysisInfo"));
 
-		getAnalysisInfoBody.getLocals().add(analysiInfoTag);
-		getAnalysisInfoBody.getLocals().add(str);
-		getAnalysisInfoBody.getLocals().add(byteArrayOutputStream);
-		getAnalysisInfoBody.getLocals().add(xmlEncoder);
-		getAnalysisInfoBody.getLocals().add(analysisInfo1);
+		toStringBody.getLocals().add(analysiInfoTag);
+		toStringBody.getLocals().add(str);
+		toStringBody.getLocals().add(byteArrayOutputStream);
+		toStringBody.getLocals().add(xmlEncoder);
+		toStringBody.getLocals().add(analysisInfo1);
 
-		getAnalysisInfoUnits.add(Jimple.v().newIdentityStmt(analysiInfoTag, Jimple.v().newThisRef(sClass.getType())));
-		getAnalysisInfoUnits.add(Jimple.v().newAssignStmt(byteArrayOutputStream,
+		toStringUnits.add(Jimple.v().newIdentityStmt(analysiInfoTag, Jimple.v().newThisRef(sClass.getType())));
+		toStringUnits.add(Jimple.v().newAssignStmt(byteArrayOutputStream,
 				Jimple.v().newNewExpr(RefType.v("java.io.ByteArrayOutputStream"))));
-		getAnalysisInfoUnits.add(Jimple.v().newInvokeStmt(Jimple.v().newSpecialInvokeExpr(byteArrayOutputStream,
+		toStringUnits.add(Jimple.v().newInvokeStmt(Jimple.v().newSpecialInvokeExpr(byteArrayOutputStream,
 				Scene.v().getMethod("<java.io.ByteArrayOutputStream: void <init>()>").makeRef())));
 
 		// Scene.v().loadBasicClasses();
@@ -554,26 +575,27 @@ public class Agent {
 		Scene.v().loadClassAndSupport("java.beans.XMLEncoder");
 
 		Scene.v().getSootClass("java.beans.XMLEncoder").getMethods().forEach((mtd) -> mtd.retrieveActiveBody());
-		getAnalysisInfoUnits
+		toStringUnits
 				.add(Jimple.v().newAssignStmt(xmlEncoder, Jimple.v().newNewExpr(RefType.v("java.beans.XMLEncoder"))));
-		getAnalysisInfoUnits.add(Jimple.v()
+		toStringUnits.add(Jimple.v()
 				.newInvokeStmt(Jimple.v().newSpecialInvokeExpr(xmlEncoder,
 						Scene.v().getMethod("<java.beans.XMLEncoder: void <init>(java.io.OutputStream)>").makeRef(),
 						byteArrayOutputStream)));
-		getAnalysisInfoUnits.add(Jimple.v().newAssignStmt(analysisInfo1,
+		toStringUnits.add(Jimple.v().newAssignStmt(analysisInfo1,
 				Jimple.v().newInstanceFieldRef(analysiInfoTag, analysisInfoField.makeRef())));
 
-		getAnalysisInfoUnits.add(Jimple.v()
+		toStringUnits.add(Jimple.v()
 				.newInvokeStmt(Jimple.v().newVirtualInvokeExpr(xmlEncoder,
 						Scene.v().getMethod("<java.beans.XMLEncoder: void writeObject(java.lang.Object)>").makeRef(),
 						analysisInfo1)));
 
-		getAnalysisInfoUnits.add(Jimple.v().newInvokeStmt(Jimple.v().newVirtualInvokeExpr(xmlEncoder,
+		toStringUnits.add(Jimple.v().newInvokeStmt(Jimple.v().newVirtualInvokeExpr(xmlEncoder,
 				Scene.v().getMethod("<java.beans.XMLEncoder: void close()>").makeRef())));
 
-		getAnalysisInfoUnits.add(Jimple.v().newAssignStmt(str, Jimple.v().newVirtualInvokeExpr(byteArrayOutputStream,
+		toStringUnits.add(Jimple.v().newAssignStmt(str, Jimple.v().newVirtualInvokeExpr(byteArrayOutputStream,
 				Scene.v().getMethod("<java.io.ByteArrayOutputStream: java.lang.String toString()>").makeRef())));
-		getAnalysisInfoUnits.add(Jimple.v().newReturnStmt(str));
+		toStringUnits.add(Jimple.v().newReturnStmt(str));
+
 
 		return sClass;
 	}
