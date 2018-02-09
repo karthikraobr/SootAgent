@@ -145,6 +145,7 @@ public class Agent {
 		for (ClassData data : classData) {
 			SootClass sootClass = data.getSootClass();
 			System.out.println("Thes soot class is " + sootClass.getName());
+			createTagMethod(sootClass);
 			data.getSootMethodData().forEach((method, filteredUnits) -> {
 				System.out.println("Method is " + method.getSignature());
 				Body methodBody = method.getActiveBody();
@@ -600,4 +601,192 @@ public class Agent {
 		return sClass;
 	}
 
+	private static void createTagMethod(SootClass sootClass) {
+		SootMethod isUnitTagged = new SootMethod("isUnitTagged",
+				Arrays.asList(new Type[] { RefType.v("soot.Unit"), RefType.v("java.lang.String"), RefType.v("java.lang.String") }), BooleanType.v(),
+				Modifier.PUBLIC);
+		
+		JimpleBody isUnitTaggedBody = Jimple.v().newBody(isUnitTagged);
+		isUnitTagged.setActiveBody(isUnitTaggedBody);
+		PatchingChain<Unit> isUnitTaggedUnits = isUnitTaggedBody.getUnits();
+		Local isUnitTaggedSelf, isUnitTaggedUnit, isUnitTaggedClassName, isUnitTaggedMethodName, isUnitTaggedr1,
+				isUnitTaggedr2, isUnitTaggedr3, isUnitTaggedTags, isUnitTaggedtag, isUnitTaggedIterator,
+				isUnitTaggedAnalysisInfoTag, isUnitTaggedAnalysisInfo, isUnitTaggedz0, isUnitTaggedz1, isUnitTaggedz2,
+				isUnitTaggedz3, isUnitTaggedz4, isUnitTaggedr0;
+
+		isUnitTaggedSelf = Jimple.v().newLocal("isUnitTaggedSelf", RefType.v(sootClass));
+		isUnitTaggedUnit = Jimple.v().newLocal("isUnitTaggedUnit", RefType.v("soot.Unit"));
+		isUnitTaggedClassName = Jimple.v().newLocal("isUnitTaggedClassName", RefType.v("java.lang.String"));
+		isUnitTaggedMethodName = Jimple.v().newLocal("isUnitTaggedMethodName", RefType.v("java.lang.String"));
+		isUnitTaggedr1 = Jimple.v().newLocal("isUnitTaggedr1", RefType.v("java.lang.String"));
+		isUnitTaggedr2 = Jimple.v().newLocal("isUnitTaggedr2", RefType.v("java.lang.String"));
+		isUnitTaggedr3 = Jimple.v().newLocal("isUnitTaggedr3", RefType.v("java.lang.String"));
+
+		isUnitTaggedTags = Jimple.v().newLocal("isUnitTaggedTags", RefType.v("java.util.List"));
+		isUnitTaggedtag = Jimple.v().newLocal("isUnitTaggedtag", RefType.v("soot.tagkit.Tag"));
+		isUnitTaggedIterator = Jimple.v().newLocal("isUnitTaggedIterator", RefType.v("java.util.Iterator"));
+		isUnitTaggedAnalysisInfoTag = Jimple.v().newLocal("isUnitTaggedAnalysisInfoTag", RefType.v("AnalysisInfoTag"));
+		isUnitTaggedAnalysisInfo = Jimple.v().newLocal("isUnitTaggedAnalysisInfo", RefType.v("AnalysisInfo"));
+
+		isUnitTaggedz0 = Jimple.v().newLocal("isUnitTaggedz0", BooleanType.v());
+		isUnitTaggedz1 = Jimple.v().newLocal("isUnitTaggedz1", BooleanType.v());
+		isUnitTaggedz2 = Jimple.v().newLocal("isUnitTaggedz2", BooleanType.v());
+		isUnitTaggedz3 = Jimple.v().newLocal("isUnitTaggedz3", BooleanType.v());
+		isUnitTaggedz4 = Jimple.v().newLocal("isUnitTaggedz4", BooleanType.v());
+		isUnitTaggedr0 = Jimple.v().newLocal("isUnitTaggedr0", RefType.v("java.lang.Object"));
+
+		isUnitTaggedBody.getLocals().add(isUnitTaggedSelf);
+		isUnitTaggedBody.getLocals().add(isUnitTaggedUnit);
+		isUnitTaggedBody.getLocals().add(isUnitTaggedClassName);
+		isUnitTaggedBody.getLocals().add(isUnitTaggedMethodName);
+		isUnitTaggedBody.getLocals().add(isUnitTaggedr1);
+		isUnitTaggedBody.getLocals().add(isUnitTaggedr2);
+		isUnitTaggedBody.getLocals().add(isUnitTaggedr3);
+		isUnitTaggedBody.getLocals().add(isUnitTaggedTags);
+		isUnitTaggedBody.getLocals().add(isUnitTaggedtag);
+		isUnitTaggedBody.getLocals().add(isUnitTaggedIterator);
+		isUnitTaggedBody.getLocals().add(isUnitTaggedAnalysisInfoTag);
+		isUnitTaggedBody.getLocals().add(isUnitTaggedAnalysisInfo);
+		isUnitTaggedBody.getLocals().add(isUnitTaggedz0);
+		isUnitTaggedBody.getLocals().add(isUnitTaggedz1);
+		isUnitTaggedBody.getLocals().add(isUnitTaggedz2);
+		isUnitTaggedBody.getLocals().add(isUnitTaggedz3);
+		isUnitTaggedBody.getLocals().add(isUnitTaggedz4);
+		isUnitTaggedBody.getLocals().add(isUnitTaggedr0);
+
+		isUnitTaggedUnits.add(Jimple.v().newIdentityStmt(isUnitTaggedSelf, Jimple.v().newThisRef(sootClass.getType())));
+		isUnitTaggedUnits.add(
+				Jimple.v().newIdentityStmt(isUnitTaggedUnit, Jimple.v().newParameterRef(RefType.v("soot.Unit"), 0)));
+		isUnitTaggedUnits.add(Jimple.v().newIdentityStmt(isUnitTaggedClassName,
+				Jimple.v().newParameterRef(RefType.v("java.lang.String"), 1)));
+		isUnitTaggedUnits.add(Jimple.v().newIdentityStmt(isUnitTaggedMethodName,
+				Jimple.v().newParameterRef(RefType.v("java.lang.String"), 2)));
+
+		SootClass tagClass = Scene.v().getSootClass("soot.Tag");
+		Unit isUnitTaggedz0Assign = Jimple.v().newAssignStmt(isUnitTaggedz0,
+				Jimple.v().newInterfaceInvokeExpr(isUnitTaggedUnit,
+						Scene.v().makeMethodRef(tagClass, "hasTag",Arrays.asList(new Type[] {RefType.v("java.lang.String")}) , BooleanType.v(), false),
+						StringConstant.v("AnalysisInfoTag")));
+		isUnitTaggedUnits.add(isUnitTaggedz0Assign);
+
+		BinopExpr condition1 = Jimple.v().newEqExpr(isUnitTaggedz0, IntConstant.v(0));
+		
+		Unit returnStmt0 = Jimple.v().newReturnStmt(IntConstant.v(0));
+		Unit IfStmt1 = Jimple.v().newIfStmt(condition1, returnStmt0);
+		isUnitTaggedUnits.add(IfStmt1);
+		
+		SootClass unitClass = Scene.v().getSootClass("soot.Unit");
+		
+		
+		Unit isUnitTaggedUnitAssign = Jimple.v().newAssignStmt(isUnitTaggedTags,
+				Jimple.v().newInterfaceInvokeExpr(isUnitTaggedUnit,
+						Scene.v().makeMethodRef(unitClass, "getTags",Arrays.asList(new Type[] {}) , RefType.v("java.util.List"), false), Arrays.asList()));
+		isUnitTaggedUnits.add(isUnitTaggedUnitAssign);
+
+        //l6 = interfaceinvoke tags.<java.util.List: java.util.Iterator iterator()>();
+
+        //goto label3;
+		Unit isUnitTaggedIteratorAssign = Jimple.v().newAssignStmt(isUnitTaggedIterator,
+				Jimple.v().newInterfaceInvokeExpr(isUnitTaggedTags,
+						Scene.v().getMethod("<java.util.List: java.util.Iterator iterator()>").makeRef(),
+						Arrays.asList()));
+		isUnitTaggedUnits.add(isUnitTaggedIteratorAssign);
+		Unit isUnitTaggedz4Assign = Jimple.v().newAssignStmt(isUnitTaggedz4,
+				Jimple.v().newInterfaceInvokeExpr(isUnitTaggedIterator,
+						Scene.v().getMethod("<java.util.Iterator: boolean hasNext()>").makeRef(),
+						Arrays.asList()));
+		Unit gotoStmt = Jimple.v().newGotoStmt(isUnitTaggedz4Assign);
+		isUnitTaggedUnits.add(gotoStmt);
+		
+		Unit isUnitTaggedroAssign = Jimple.v().newAssignStmt(isUnitTaggedr0,
+				Jimple.v().newInterfaceInvokeExpr(isUnitTaggedIterator,
+						Scene.v().getMethod("<java.util.Iterator: java.lang.Object next()>").makeRef(),
+						Arrays.asList()));
+		isUnitTaggedUnits.add(isUnitTaggedroAssign);
+		
+		
+
+
+		Unit isUnitTaggedtagTypeCast = Jimple.v().newAssignStmt(isUnitTaggedtag,
+				Jimple.v().newCastExpr(isUnitTaggedr0, RefType.v("soot.tagkit.Tag")));
+		isUnitTaggedUnits.add(isUnitTaggedtagTypeCast);
+
+		SootClass tagKitClass = Scene.v().getSootClass("soot.tagkit.Tag");
+		
+		
+		Unit isUnitTaggedr1Assign = Jimple.v().newAssignStmt(isUnitTaggedr1,
+				Jimple.v().newInterfaceInvokeExpr(isUnitTaggedtag,
+						Scene.v().makeMethodRef(tagKitClass, "getName",Arrays.asList(new Type[] {}) , RefType.v("java.lang.String"), false),
+						Arrays.asList()));
+		isUnitTaggedUnits.add(isUnitTaggedr1Assign);
+
+		Unit isUnitTaggedz1Assign = Jimple.v().newAssignStmt(isUnitTaggedz1,
+				Jimple.v().newVirtualInvokeExpr(isUnitTaggedr1,
+						Scene.v().getMethod("<java.lang.String: boolean equals(java.lang.Object)>").makeRef(),
+						StringConstant.v("AnalysisInfoTag")));
+		isUnitTaggedUnits.add(isUnitTaggedz1Assign);
+
+		
+		BinopExpr condition2 = Jimple.v().newEqExpr(isUnitTaggedz1, IntConstant.v(0));
+		Unit IfStmt2 = Jimple.v().newIfStmt(condition2, isUnitTaggedz4Assign);
+		isUnitTaggedUnits.add(IfStmt2);
+		
+		Unit isUnitTaggedAnalysisInfoTagAssign = Jimple.v().newAssignStmt(isUnitTaggedAnalysisInfoTag,
+				Jimple.v().newCastExpr(isUnitTaggedtag, RefType.v("AnalysisInfoTag")));
+		isUnitTaggedUnits.add(isUnitTaggedAnalysisInfoTagAssign);
+
+		SootClass analysisInfoClass = Scene.v().getSootClass("AnalysisInfoTag");
+		
+		Unit isUnitTaggedAnalysisInfoAssign = Jimple.v().newAssignStmt(isUnitTaggedAnalysisInfo,
+				Jimple.v().newVirtualInvokeExpr(isUnitTaggedAnalysisInfoTag,
+						Scene.v().makeMethodRef(analysisInfoClass, "getAnalysisInfo",Arrays.asList(new Type[] {}) , RefType.v("AnalysisInfo"), false),
+						Arrays.asList()));
+		isUnitTaggedUnits.add(isUnitTaggedAnalysisInfoAssign);
+
+		Unit isUnitTaggedr2Assign = Jimple.v().newAssignStmt(isUnitTaggedr2,
+				Jimple.v().newVirtualInvokeExpr(isUnitTaggedAnalysisInfo,
+						Scene.v().getMethod("<AnalysisInfo: java.lang.String getClassName()>").makeRef(),
+						Arrays.asList()));
+		isUnitTaggedUnits.add(isUnitTaggedr2Assign);
+
+		Unit isUnitTaggedz2Assign = Jimple.v().newAssignStmt(isUnitTaggedz2,
+				Jimple.v().newVirtualInvokeExpr(isUnitTaggedr2,
+						Scene.v().getMethod("<java.lang.String: boolean equals(java.lang.Object)>").makeRef(),
+						isUnitTaggedClassName));
+		isUnitTaggedUnits.add(isUnitTaggedz2Assign);
+		
+		Unit returnStmt1 = Jimple.v().newReturnStmt(IntConstant.v(1));
+		BinopExpr condition3 = Jimple.v().newEqExpr(isUnitTaggedz2, IntConstant.v(0));
+		Unit IfStmt3 = Jimple.v().newIfStmt(condition3, returnStmt1);
+		isUnitTaggedUnits.add(IfStmt3);
+		
+		Unit isUnitTaggedr3Assign = Jimple.v().newAssignStmt(isUnitTaggedr3,
+				Jimple.v().newVirtualInvokeExpr(isUnitTaggedAnalysisInfo,
+						Scene.v().getMethod("<AnalysisInfo: java.lang.String getMethodName()>").makeRef(),
+						Arrays.asList()));
+		isUnitTaggedUnits.add(isUnitTaggedr3Assign);
+
+		Unit isUnitTaggedz3Assign = Jimple.v().newAssignStmt(isUnitTaggedz3,
+				Jimple.v().newVirtualInvokeExpr(isUnitTaggedr3,
+						Scene.v().getMethod("<java.lang.String: boolean equals(java.lang.Object)>").makeRef(),
+						isUnitTaggedMethodName));
+		isUnitTaggedUnits.add(isUnitTaggedz3Assign);
+		
+		BinopExpr condition4 = Jimple.v().newNeExpr(isUnitTaggedz3, IntConstant.v(0));
+		Unit IfStmt4 = Jimple.v().newIfStmt(condition4, isUnitTaggedz4Assign);
+		isUnitTaggedUnits.add(IfStmt4);
+		
+		isUnitTaggedUnits.add(returnStmt1);
+
+		isUnitTaggedUnits.add(isUnitTaggedz4Assign);
+		
+		BinopExpr condition5 = Jimple.v().newNeExpr(isUnitTaggedz4, IntConstant.v(0));
+		Unit IfStmt5 = Jimple.v().newIfStmt(condition5, isUnitTaggedroAssign);
+		isUnitTaggedUnits.add(IfStmt5);
+		
+		isUnitTaggedUnits.add(returnStmt0);
+		
+		sootClass.addMethod(isUnitTagged);
+
+	}
 }
