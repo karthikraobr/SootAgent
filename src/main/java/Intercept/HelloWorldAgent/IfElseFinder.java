@@ -30,10 +30,6 @@ public class IfElseFinder extends ForwardFlowAnalysis<Unit, Set<FlowAbstraction>
 			if (pred instanceof IfStmt) {
 				isIfPred = true;
 				IfStmt ifStmt = (IfStmt) pred;
-				if (d.toString().equals("expr = (soot.jimple.internal.AbstractBinopExpr) rightSide")) {
-					System.out.println(d);
-
-				}
 				if (ifStmt.getTarget().equals(d)) {
 					out.add(new FlowAbstraction(ifStmt, true));
 				} else if (graph.getSuccsOf(ifStmt).contains(d)) {
@@ -90,12 +86,8 @@ public class IfElseFinder extends ForwardFlowAnalysis<Unit, Set<FlowAbstraction>
 	}
 	
 	public FlowAbstraction getNearestIfStmt(Unit unit) {
-		System.out.println("Unit is " + unit);
 		Set<FlowAbstraction> conditionsAfter = getFlowAfter(unit);
 		if (conditionsAfter.size() == 1) {
-			System.out.printf("Nearest if ==>%s and bool is %b\n",
-					conditionsAfter.stream().findFirst().get().getSource(),
-					conditionsAfter.stream().findFirst().get().isTrue());
 			return conditionsAfter.stream().findFirst().get();
 		} else {
 
@@ -104,8 +96,6 @@ public class IfElseFinder extends ForwardFlowAnalysis<Unit, Set<FlowAbstraction>
 				List<FlowAbstraction> difference = conditionsAfter.stream().filter(x -> !conditions.contains(x))
 						.collect(Collectors.toList());
 				if (difference.size() == 1 && difference.contains(condition)) {
-					System.out.printf("Nearest if ==>%s and condition is %b\n", condition.getSource(),
-							condition.isTrue());
 					return condition;
 				}
 			}

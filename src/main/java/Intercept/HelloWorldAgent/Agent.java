@@ -28,7 +28,6 @@ import soot.util.*;
 import java.io.*;
 import heros.InterproceduralCFG;
 
-
 public class Agent {
 
 	public static void findReachableMethods(SootMethod source, InterproceduralCFG<Unit, SootMethod> icfg,
@@ -43,7 +42,7 @@ public class Agent {
 					JInvokeStmt call = (JInvokeStmt) mtdwithin;
 					methd = call.getInvokeExpr().getMethod();
 				}
-				if (!methd.isJavaLibraryMethod() && methd.isDeclared() && !methd.isPhantom()) {
+				if (!methd.isJavaLibraryMethod() && methd.isDeclared() && !methd.isPhantom() && methd.hasActiveBody()) {
 					methd.retrieveActiveBody();
 					if (!mtdLst.contains(methd)) {
 						mtdLst.add(methd);
@@ -86,7 +85,6 @@ public class Agent {
 					finder.doAnalysis();
 					for (Unit unit : mtdBody.getUnits().stream().filter(x -> x.hasTag("ConditionTag"))
 							.collect(Collectors.toList())) {
-						System.out.printf("The unit after condition is %s\n", unit.toString());
 						units.add(unit);
 					}
 					filteredUnits.put(mtd, units);
@@ -123,9 +121,11 @@ public class Agent {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		Options.v().setPhaseOption("cg", "all-reachable:true");
+
 		Main.main(new String[] { "-pp", "-process-dir", targetDir, "-w", "-exclude", "javax", "-allow-phantom-refs",
 				"-output-dir", sootOutput.getAbsolutePath(), "-no-bodies-for-excluded", "-src-prec", "only-class",
-				"-output-format", "J", "-p", "jb", "use-original-names:true", "-keep-line-number", });
+				"-output-format", "J", "-p", "jb", "use-original-names:true", "-keep-line-number"});
 	}
 
 	// java -cp "..\sootOutput" -javaagent:"C:\Projects\Java\Reviser
@@ -143,26 +143,26 @@ public class Agent {
 		Scene.v().addClass(analysisTagSootClass);
 		WriteToClass(analysisTagSootClass);
 		for (ClassData data : classData) {
+			boolean shouldWrite = false;
 			SootClass sootClass = data.getSootClass();
-			System.out.println("Thes soot class is " + sootClass.getName());
-			data.getSootMethodData().forEach((method, filteredUnits) -> {
-				System.out.println("Method is " + method.getSignature());
+			for (SootMethod method : data.getSootMethodData().keySet()) {
+				List<Unit> filteredUnits = data.getSootMethodData().get(method);
 				Body methodBody = method.getActiveBody();
 				PatchingChain<Unit> units = methodBody.getUnits();
 				// Tagging
-				Local mapLocal, analysisInfoLocal, analysisTagLocal;
-				mapLocal = Jimple.v().newLocal("mapLocal", RefType.v("java.util.HashMap"));
-				analysisInfoLocal = Jimple.v().newLocal("analysisInfoLocal", RefType.v("AnalysisInfo"));
-				analysisTagLocal = Jimple.v().newLocal("analysisTagLocal", RefType.v("AnalysisInfoTag"));
-				methodBody.getLocals().add(mapLocal);
-				methodBody.getLocals().add(analysisInfoLocal);
-				methodBody.getLocals().add(analysisTagLocal);
-
 				List<Local> params = methodBody.getParameterLocals().stream()
 						.filter(pred -> pred.getType().getEscapedName().equals("soot.Unit"))
 						.collect(Collectors.toList());
 				Local unitParam = null;
 				if (params != null && params.size() > 0) {
+					Local mapLocal, analysisInfoLocal, analysisTagLocal;
+					mapLocal = Jimple.v().newLocal("mapLocal", RefType.v("java.util.HashMap"));
+					analysisInfoLocal = Jimple.v().newLocal("analysisInfoLocal", RefType.v("AnalysisInfo"));
+					analysisTagLocal = Jimple.v().newLocal("analysisTagLocal", RefType.v("AnalysisInfoTag"));
+					methodBody.getLocals().add(mapLocal);
+					methodBody.getLocals().add(analysisInfoLocal);
+					methodBody.getLocals().add(analysisTagLocal);
+
 					unitParam = params.get(0);
 					Local conditionRef, boolRef, jimpleRep;
 					// Add locals
@@ -181,7 +181,7 @@ public class Agent {
 								.collect(Collectors.toList());
 						for (Tag tag : ifStmts) {
 							ConditionTag conditionTag = (ConditionTag) tag;
-							Unit ifStmt = conditionTag.getIfStmt();
+							IfStmt ifStmt = (IfStmt) conditionTag.getIfStmt();
 							int boolIntValue = (conditionTag.getBranch()) ? 1 : 0;
 							Unit branch = Jimple.v().newAssignStmt(conditionRef,
 									DIntConstant.v(boolIntValue, BooleanType.v()));
@@ -190,7 +190,8 @@ public class Agent {
 											.getMethod("<java.lang.Boolean: java.lang.Boolean valueOf(boolean)>")
 											.makeRef(), conditionRef));
 
-							Unit jimpleVal = Jimple.v().newAssignStmt(jimpleRep, StringConstant.v(ifStmt.toString()));
+							Unit jimpleVal = Jimple.v().newAssignStmt(jimpleRep,
+									StringConstant.v(ifStmt.getCondition().toString()));
 
 							Unit lineNumberAdd = Jimple.v()
 									.newInvokeStmt(Jimple.v().newVirtualInvokeExpr(mapLocal, Scene.v().getMethod(
@@ -206,6 +207,7 @@ public class Agent {
 					}
 
 					if (isExecuted) {
+						shouldWrite = true;
 						Unit analysisInfoNew = Jimple.v().newAssignStmt(analysisInfoLocal,
 								Jimple.v().newNewExpr(RefType.v("AnalysisInfo")));
 
@@ -232,7 +234,7 @@ public class Agent {
 						Unit setMethodName = Jimple.v()
 								.newInvokeStmt(Jimple.v().newVirtualInvokeExpr(analysisInfoLocal, Scene.v()
 										.getMethod("<AnalysisInfo: void setMethodName(java.lang.String)>").makeRef(),
-										StringConstant.v(method.getName())));
+										StringConstant.v(method.getSignature())));
 
 						Unit tagInterfaceInvoke = Jimple.v()
 								.newInvokeStmt(Jimple.v().newInterfaceInvokeExpr(unitParam,
@@ -259,8 +261,10 @@ public class Agent {
 					}
 				}
 
-			});
-			WriteToClass(sootClass);
+			}
+			if (shouldWrite) {
+				WriteToClass(sootClass);
+			}
 		}
 
 	}
@@ -269,11 +273,14 @@ public class Agent {
 		try {
 			String classFile = SourceLocator.v().getFileNameFor(sootClass, Options.output_format_class);
 			sootClass.getMethods().forEach((mtd) -> {
-				mtd.retrieveActiveBody();
+				if (mtd.hasActiveBody()) {
+					mtd.retrieveActiveBody();
+				} else {
+					return;
+				}
 			});
 			OutputStream streamOut = new JasminOutputStream(new FileOutputStream(classFile));
 			PrintWriter writerOut = new PrintWriter(new OutputStreamWriter(streamOut));
-			System.out.println(sootClass.getName());
 			JasminClass jasminClass = new soot.jimple.JasminClass(sootClass);
 			jasminClass.print(writerOut);
 			writerOut.flush();
@@ -463,7 +470,6 @@ public class Agent {
 		getNameUnits.add(Jimple.v().newAssignStmt(retVal, StringConstant.v(sClass.getName())));
 		getNameUnits.add(Jimple.v().newReturnStmt(retVal));
 
-		
 		SootMethod getAnalysisInfo = new SootMethod("getAnalysisInfo", Arrays.asList(new Type[] {}),
 				RefType.v("AnalysisInfo"), Modifier.PUBLIC);
 		sClass.addMethod(getAnalysisInfo);
@@ -475,14 +481,12 @@ public class Agent {
 		getAnalysisInfoBody.getLocals().add(getAnalysisInfoSelf);
 		getAnalysisInfoVar = Jimple.v().newLocal("getAnalysisInfoVar", RefType.v("AnalysisInfo"));
 		getAnalysisInfoBody.getLocals().add(getAnalysisInfoVar);
-		getAnalysisInfoUnits.add(Jimple.v().newIdentityStmt(getAnalysisInfoSelf, Jimple.v().newThisRef(sClass.getType())));
+		getAnalysisInfoUnits
+				.add(Jimple.v().newIdentityStmt(getAnalysisInfoSelf, Jimple.v().newThisRef(sClass.getType())));
 		getAnalysisInfoUnits.add(Jimple.v().newAssignStmt(getAnalysisInfoVar,
 				Jimple.v().newInstanceFieldRef(getAnalysisInfoSelf, analysisInfoField.makeRef())));
 		getAnalysisInfoUnits.add(Jimple.v().newReturnStmt(getAnalysisInfoVar));
-		
-		
-		
-		
+
 		SootMethod getValue = new SootMethod("getValue", Arrays.asList(new Type[] {}), ArrayType.v(ByteType.v(), 1),
 				Modifier.PUBLIC,
 				Arrays.asList(new SootClass[] { Scene.v().getSootClass("soot.tagkit.AttributeValueException") }));
@@ -544,8 +548,8 @@ public class Agent {
 		getValueBody.getTraps()
 				.add(Jimple.v().newTrap(Scene.v().getSootClass("java.io.IOException"), label1, label2, label3));
 
-		SootMethod toString = new SootMethod("toString", Arrays.asList(new Type[] {}),
-				RefType.v("java.lang.String"), Modifier.PUBLIC);
+		SootMethod toString = new SootMethod("toString", Arrays.asList(new Type[] {}), RefType.v("java.lang.String"),
+				Modifier.PUBLIC);
 		sClass.addMethod(toString);
 		JimpleBody toStringBody = Jimple.v().newBody(toString);
 		toString.setActiveBody(toStringBody);
@@ -595,7 +599,6 @@ public class Agent {
 		toStringUnits.add(Jimple.v().newAssignStmt(str, Jimple.v().newVirtualInvokeExpr(byteArrayOutputStream,
 				Scene.v().getMethod("<java.io.ByteArrayOutputStream: java.lang.String toString()>").makeRef())));
 		toStringUnits.add(Jimple.v().newReturnStmt(str));
-
 
 		return sClass;
 	}
