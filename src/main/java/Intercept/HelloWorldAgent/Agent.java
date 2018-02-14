@@ -19,6 +19,8 @@ import org.apache.commons.io.FileUtils;
 import soot.*;
 import soot.dava.internal.javaRep.DIntConstant;
 import soot.jimple.*;
+import soot.jimple.changeset.ConditionTag;
+import soot.jimple.changeset.IfElseFinder;
 import soot.jimple.internal.JAssignStmt;
 import soot.jimple.internal.JInvokeStmt;
 import soot.jimple.toolkits.ide.icfg.JimpleBasedInterproceduralCFG;
@@ -64,17 +66,17 @@ public class Agent {
 				// dependencies of a particular method.
 				JimpleBasedInterproceduralCFG icfg = new JimpleBasedInterproceduralCFG();
 				List<ClassData> classDatas = new ArrayList<ClassData>();
-
 				List<SootMethod> reachableMethods = new ArrayList<SootMethod>();
-				Scene.v().getClasses().forEach((cls) -> {
-					cls.getMethods().forEach((mtd) -> {
+				
+				for(SootClass cls:Scene.v().getClasses()) {
+					for(SootMethod mtd:cls.getMethods()) {
 						if (mtd.getName().equals("flowThrough") && !mtd.getDeclaration().contains("volatile")) {
+							reachableMethods.add(mtd);
 							findReachableMethods(mtd, icfg, reachableMethods);
 						}
-
-					});
-
-				});
+					}
+					
+				}
 
 				for (SootMethod mtd : reachableMethods) {
 					List<Unit> units = new ArrayList<Unit>();
@@ -125,7 +127,7 @@ public class Agent {
 
 		Main.main(new String[] { "-pp", "-process-dir", targetDir, "-w", "-exclude", "javax", "-allow-phantom-refs",
 				"-output-dir", sootOutput.getAbsolutePath(), "-no-bodies-for-excluded", "-src-prec", "only-class",
-				"-output-format", "J", "-p", "jb", "use-original-names:true", "-keep-line-number"});
+				"-output-format", "J", "-p", "jb", "use-original-names:true", "-keep-line-number" });
 	}
 
 	// java -cp "..\sootOutput" -javaagent:"C:\Projects\Java\Reviser
@@ -133,6 +135,7 @@ public class Agent {
 	// de.visuflow.ex2.MainClass
 	public static void premain(String agentArgs, Instrumentation inst) {
 		tranform(agentArgs);
+		System.out.println("----------------------End of Agent----------------------------------------");
 	}
 
 	private static void enhanceMethod(List<ClassData> classData) {
@@ -155,14 +158,15 @@ public class Agent {
 						.collect(Collectors.toList());
 				Local unitParam = null;
 				if (params != null && params.size() > 0) {
-					Local mapLocal, analysisInfoLocal, analysisTagLocal;
+					Local mapLocal, analysisInfoLocal, analysisTagLocal, printStreamLocal;
 					mapLocal = Jimple.v().newLocal("mapLocal", RefType.v("java.util.HashMap"));
 					analysisInfoLocal = Jimple.v().newLocal("analysisInfoLocal", RefType.v("AnalysisInfo"));
 					analysisTagLocal = Jimple.v().newLocal("analysisTagLocal", RefType.v("AnalysisInfoTag"));
+					printStreamLocal = Jimple.v().newLocal("printStreamLocal", RefType.v("java.io.PrintStream"));
 					methodBody.getLocals().add(mapLocal);
 					methodBody.getLocals().add(analysisInfoLocal);
 					methodBody.getLocals().add(analysisTagLocal);
-
+					methodBody.getLocals().add(printStreamLocal);
 					unitParam = params.get(0);
 					Local conditionRef, boolRef, jimpleRep;
 					// Add locals
@@ -198,10 +202,23 @@ public class Agent {
 											"<java.util.HashMap: java.lang.Object put(java.lang.Object,java.lang.Object)>")
 											.makeRef(), jimpleRep, boolRef));
 
+							Unit printStreamOutRef = Jimple.v().newAssignStmt(printStreamLocal,
+									Jimple.v().newStaticFieldRef(Scene.v()
+											.getField("<java.lang.System: java.io.PrintStream out>").makeRef()));
+							SootMethod toCall = Scene.v()
+									.getMethod("<java.io.PrintStream: void println(java.lang.Object)>");
+							Unit printer = Jimple.v().newInvokeStmt(
+									Jimple.v().newVirtualInvokeExpr(printStreamLocal, toCall.makeRef(), mapLocal));
+							Unit methodPrinter = Jimple.v().newInvokeStmt(Jimple.v().newVirtualInvokeExpr(
+									printStreamLocal, toCall.makeRef(), StringConstant.v(method.getSignature())));
+
 							units.insertBefore(branch, unit);
 							units.insertAfter(lineNumberObjVal, branch);
 							units.insertAfter(jimpleVal, lineNumberObjVal);
 							units.insertAfter(lineNumberAdd, jimpleVal);
+							// units.insertAfter(printStreamOutRef, lineNumberAdd);
+							// units.insertAfter(printer, printStreamOutRef);
+							// units.insertAfter(methodPrinter, printer);
 							isExecuted = true;
 						}
 					}
