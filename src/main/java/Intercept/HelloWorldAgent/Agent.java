@@ -180,6 +180,10 @@ public class Agent {
 					boolean isExecuted = false;
 					// Iterate over each IFStmt and add a print statement to it which prints the
 					// current line number.
+					if(filteredUnits.size()==0) {
+						isExecuted = true;
+					}
+					
 					for (Unit unit : filteredUnits) {
 						List<Tag> ifStmts = unit.getTags().stream().filter(x -> x.getName().equals("ConditionTag"))
 								.collect(Collectors.toList());
@@ -265,6 +269,8 @@ public class Agent {
 								Scene.v().getMethod("<java.util.HashMap: void <init>()>").makeRef()));
 
 						Unit lastParam = ((JimpleBody) methodBody).getFirstNonIdentityStmt();
+						System.out.println("The class is "+sootClass.getName());
+						System.out.println("The lastparam is "+lastParam);
 						units.insertBefore(arrayListNew, lastParam);
 						units.insertAfter(arrayListInit, arrayListNew);
 						units.insertAfter(analysisInfoNew, arrayListInit);
@@ -309,7 +315,6 @@ public class Agent {
 	}
 
 	private static SootClass createClassAttributeClass() {
-
 		SootClass sClass = new SootClass("AnalysisInfo", Modifier.PUBLIC);
 		sClass.setSuperclass(Scene.v().getSootClass("java.lang.Object"));
 		SootField classNameField = new SootField("className", RefType.v("java.lang.String"));
