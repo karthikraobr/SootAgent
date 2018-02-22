@@ -65,33 +65,36 @@ public class Agent {
 				// ICFG along with findReachableMethods will be used later to find out
 				// dependencies of a particular method.
 				JimpleBasedInterproceduralCFG icfg = new JimpleBasedInterproceduralCFG();
-				List<ClassData> classDatas = new ArrayList<ClassData>();
+				List<ClassData> classInformation = new ArrayList<ClassData>();
 				List<SootMethod> reachableMethods = new ArrayList<SootMethod>();
-				
-				for(SootClass cls:Scene.v().getClasses()) {
-					for(SootMethod mtd:cls.getMethods()) {
+				//long start = System.nanoTime();
+				for (SootClass cls : Scene.v().getClasses()) {
+					for (SootMethod mtd : cls.getMethods()) {
 						if (mtd.getName().equals("flowThrough") && !mtd.getDeclaration().contains("volatile")) {
 							reachableMethods.add(mtd);
 							findReachableMethods(mtd, icfg, reachableMethods);
 						}
 					}
-					
-				}
 
+				}
+				//System.out.println("Time elapsed = " + (System.nanoTime() - start));
+				//start = System.nanoTime();
 				for (SootMethod mtd : reachableMethods) {
 					List<Unit> units = new ArrayList<Unit>();
 					ClassData classData = new ClassData();
 					Map<SootMethod, List<Unit>> filteredUnits = new HashMap<SootMethod, List<Unit>>();
 					Body mtdBody = mtd.retrieveActiveBody();
 					IfElseFinder finder = new IfElseFinder(mtdBody);
+					//long startTime = System.nanoTime();
 					finder.doAnalysis();
+					//System.out.println("Ifelse finder took" + (System.nanoTime() - startTime));
 					for (Unit unit : mtdBody.getUnits().stream().filter(x -> x.hasTag("ConditionTag"))
 							.collect(Collectors.toList())) {
 						units.add(unit);
 					}
 					filteredUnits.put(mtd, units);
 					boolean isClassPresent = false;
-					for (ClassData pred : classDatas) {
+					for (ClassData pred : classInformation) {
 						if (pred.getSootClass().getName().equals(mtd.getDeclaringClass().getName())) {
 							pred.getSootMethodData().put(mtd, units);
 							isClassPresent = true;
@@ -101,33 +104,43 @@ public class Agent {
 					if (!isClassPresent) {
 						classData.setSootClass(mtd.getDeclaringClass());
 						classData.setSootMethodData(filteredUnits);
-						classDatas.add(classData);
+						classInformation.add(classData);
 					}
 				}
-				Scene.v().getApplicationClasses().forEach((cls) -> {
-					WriteToClass(cls);
-				});
-				enhanceMethod(classDatas);
+				//System.out.println("Method loop elapsed = " + (System.nanoTime() - start));
+				// Scene.v().getApplicationClasses().forEach((cls) -> {
+				// WriteToClass(cls);
+				// });
+				//start = System.nanoTime();
+				enhanceMethod(classInformation);
+				//System.out.println("Enhance method for" + classInformation + (System.nanoTime() - start));
 			}
 		});
 		Scene.v().addBasicClass("java.beans.XMLEncoder", SootClass.BODIES);
+		Scene.v().addBasicClass("soot.jimple.changeset.AnalysisInfo", SootClass.BODIES);
+		Scene.v().addBasicClass("soot.jimple.changeset.AnalysisInfoTag", SootClass.BODIES);
 		// Scene.v().forceResolve("java.beans.XMLEncoder", SootClass.HIERARCHY);
 
 		PackManager.v().getPack("wjtp").add(transform);
-		File src = new File(targetDir);
+		String[] targets = targetDir.split(",");
+		//System.out.println(targets);
+		File src = new File(targets[0]);
+		File src2 = new File(targets[1]);
 		File parent = src.getParentFile();
 		File sootOutput = new File(parent, "sootOutput");
 		try {
 			FileUtils.copyDirectory(src, sootOutput);
+			FileUtils.copyDirectory(src2, sootOutput);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		Options.v().setPhaseOption("cg", "all-reachable:true");
 
-		Main.main(new String[] { "-pp", "-process-dir", targetDir, "-w", "-exclude", "javax", "-allow-phantom-refs",
-				"-output-dir", sootOutput.getAbsolutePath(), "-no-bodies-for-excluded", "-src-prec", "only-class",
-				"-output-format", "J", "-p", "jb", "use-original-names:true", "-keep-line-number" });
+		Main.main(new String[] { "-pp", "-process-dir", sootOutput.getAbsolutePath(), "-w", "-exclude", "javax",
+				"-allow-phantom-refs", "-output-dir", sootOutput.getAbsolutePath(), "-no-bodies-for-excluded",
+				"-src-prec", "only-class", "-output-format", "none", "-p", "jb", "use-original-names:true",
+				"-keep-line-number" });
 	}
 
 	// java -cp "..\sootOutput" -javaagent:"C:\Projects\Java\Reviser
@@ -139,12 +152,12 @@ public class Agent {
 	}
 
 	private static void enhanceMethod(List<ClassData> classData) {
-		SootClass analysisInfoSootClass = createClassAttributeClass();
-		Scene.v().addClass(analysisInfoSootClass);
-		WriteToClass(analysisInfoSootClass);
-		SootClass analysisTagSootClass = createAnalysisInfoTagClass();
-		Scene.v().addClass(analysisTagSootClass);
-		WriteToClass(analysisTagSootClass);
+		// SootClass analysisInfoSootClass = createClassAttributeClass();
+		// Scene.v().addClass(analysisInfoSootClass);
+		// WriteToClass(analysisInfoSootClass);
+		// SootClass analysisTagSootClass = createAnalysisInfoTagClass();
+		// Scene.v().addClass(analysisTagSootClass);
+		// WriteToClass(analysisTagSootClass);
 		for (ClassData data : classData) {
 			boolean shouldWrite = false;
 			SootClass sootClass = data.getSootClass();
@@ -160,8 +173,10 @@ public class Agent {
 				if (params != null && params.size() > 0) {
 					Local mapLocal, analysisInfoLocal, analysisTagLocal, printStreamLocal;
 					mapLocal = Jimple.v().newLocal("mapLocal", RefType.v("java.util.HashMap"));
-					analysisInfoLocal = Jimple.v().newLocal("analysisInfoLocal", RefType.v("AnalysisInfo"));
-					analysisTagLocal = Jimple.v().newLocal("analysisTagLocal", RefType.v("AnalysisInfoTag"));
+					analysisInfoLocal = Jimple.v().newLocal("analysisInfoLocal",
+							RefType.v("soot.jimple.changeset.AnalysisInfo"));
+					analysisTagLocal = Jimple.v().newLocal("analysisTagLocal",
+							RefType.v("soot.jimple.changeset.AnalysisInfoTag"));
 					printStreamLocal = Jimple.v().newLocal("printStreamLocal", RefType.v("java.io.PrintStream"));
 					methodBody.getLocals().add(mapLocal);
 					methodBody.getLocals().add(analysisInfoLocal);
@@ -180,10 +195,10 @@ public class Agent {
 					boolean isExecuted = false;
 					// Iterate over each IFStmt and add a print statement to it which prints the
 					// current line number.
-					if(filteredUnits.size()==0) {
+					if (filteredUnits.size() == 0) {
 						isExecuted = true;
 					}
-					
+					//long start = System.nanoTime();
 					for (Unit unit : filteredUnits) {
 						List<Tag> ifStmts = unit.getTags().stream().filter(x -> x.getName().equals("ConditionTag"))
 								.collect(Collectors.toList());
@@ -193,28 +208,46 @@ public class Agent {
 							int boolIntValue = (conditionTag.getBranch()) ? 1 : 0;
 							Unit branch = Jimple.v().newAssignStmt(conditionRef,
 									DIntConstant.v(boolIntValue, BooleanType.v()));
-							Unit lineNumberObjVal = Jimple.v().newAssignStmt(boolRef, Jimple.v()
-									.newStaticInvokeExpr(Scene.v()
-											.getMethod("<java.lang.Boolean: java.lang.Boolean valueOf(boolean)>")
-											.makeRef(), conditionRef));
+
+							// Unit lineNumberObjVal = Jimple.v().newAssignStmt(boolRef, Jimple.v()
+							// .newStaticInvokeExpr(Scene.v()
+							// .getMethod("<java.lang.Boolean: java.lang.Boolean valueOf(boolean)>")
+							// .makeRef(), conditionRef));
+
+							Unit lineNumberObjVal = Jimple.v().newAssignStmt(boolRef, Jimple.v().newStaticInvokeExpr(
+									Scene.v().makeMethodRef(Scene.v().getSootClass("java.lang.Boolean"), "valueOf",
+											Arrays.asList(new Type[] { BooleanType.v() }), RefType.v("java.lang.Boolean"), true),
+									conditionRef));
 
 							Unit jimpleVal = Jimple.v().newAssignStmt(jimpleRep,
 									StringConstant.v(ifStmt.getCondition().toString()));
 
-							Unit lineNumberAdd = Jimple.v()
-									.newInvokeStmt(Jimple.v().newVirtualInvokeExpr(mapLocal, Scene.v().getMethod(
-											"<java.util.HashMap: java.lang.Object put(java.lang.Object,java.lang.Object)>")
-											.makeRef(), jimpleRep, boolRef));
+							// Unit lineNumberAdd = Jimple.v()
+							// .newInvokeStmt(Jimple.v().newVirtualInvokeExpr(mapLocal, Scene.v().getMethod(
+							// "<java.util.HashMap: java.lang.Object
+							// put(java.lang.Object,java.lang.Object)>")
+							// .makeRef(), jimpleRep, boolRef));
 
-							Unit printStreamOutRef = Jimple.v().newAssignStmt(printStreamLocal,
-									Jimple.v().newStaticFieldRef(Scene.v()
-											.getField("<java.lang.System: java.io.PrintStream out>").makeRef()));
-							SootMethod toCall = Scene.v()
-									.getMethod("<java.io.PrintStream: void println(java.lang.Object)>");
-							Unit printer = Jimple.v().newInvokeStmt(
-									Jimple.v().newVirtualInvokeExpr(printStreamLocal, toCall.makeRef(), mapLocal));
-							Unit methodPrinter = Jimple.v().newInvokeStmt(Jimple.v().newVirtualInvokeExpr(
-									printStreamLocal, toCall.makeRef(), StringConstant.v(method.getSignature())));
+							Unit lineNumberAdd = Jimple.v()
+									.newInvokeStmt(Jimple.v().newVirtualInvokeExpr(mapLocal,
+											Scene.v().makeMethodRef(Scene.v().getSootClass("java.util.HashMap"), "put",
+													Arrays.asList(new Type[] { RefType.v("java.lang.Object"),
+															RefType.v("java.lang.Object") }),
+													RefType.v("java.lang.Object"), false),
+											jimpleRep, boolRef));
+
+							// Unit printStreamOutRef = Jimple.v().newAssignStmt(printStreamLocal,
+							// Jimple.v().newStaticFieldRef(Scene.v()
+							// .getField("<java.lang.System: java.io.PrintStream out>").makeRef()));
+							// SootMethod toCall = Scene.v()
+							// .getMethod("<java.io.PrintStream: void println(java.lang.Object)>");
+							// Unit printer = Jimple.v().newInvokeStmt(
+							// Jimple.v().newVirtualInvokeExpr(printStreamLocal, toCall.makeRef(),
+							// mapLocal));
+							// Unit methodPrinter =
+							// Jimple.v().newInvokeStmt(Jimple.v().newVirtualInvokeExpr(
+							// printStreamLocal, toCall.makeRef(),
+							// StringConstant.v(method.getSignature())));
 
 							units.insertBefore(branch, unit);
 							units.insertAfter(lineNumberObjVal, branch);
@@ -226,36 +259,46 @@ public class Agent {
 							isExecuted = true;
 						}
 					}
-
+					//System.out.println("Unit loop elapsed = " + (System.nanoTime() - start));
+					//start = System.nanoTime();
 					if (isExecuted) {
 						shouldWrite = true;
 						Unit analysisInfoNew = Jimple.v().newAssignStmt(analysisInfoLocal,
-								Jimple.v().newNewExpr(RefType.v("AnalysisInfo")));
+								Jimple.v().newNewExpr(RefType.v("soot.jimple.changeset.AnalysisInfo")));
 
-						Unit analysisInfoInit = Jimple.v().newInvokeStmt(Jimple.v().newSpecialInvokeExpr(
-								analysisInfoLocal, Scene.v().getMethod("<AnalysisInfo: void <init>()>").makeRef()));
+						;
+						Unit analysisInfoInit = Jimple.v()
+								.newInvokeStmt(Jimple.v().newSpecialInvokeExpr(analysisInfoLocal,
+										Scene.v().makeMethodRef(
+												Scene.v().getSootClass("soot.jimple.changeset.AnalysisInfo"), "<init>",
+												Arrays.asList(new Type[] {}), VoidType.v(), false)));
 
 						Unit analysisInfoTagNew = Jimple.v().newAssignStmt(analysisTagLocal,
-								Jimple.v().newNewExpr(RefType.v("AnalysisInfoTag")));
+								Jimple.v().newNewExpr(RefType.v("soot.jimple.changeset.AnalysisInfoTag")));
 
-						Unit analysisInfoTagInit = Jimple.v()
-								.newInvokeStmt(Jimple.v().newSpecialInvokeExpr(analysisTagLocal,
-										Scene.v().getMethod("<AnalysisInfoTag: void <init>(AnalysisInfo)>").makeRef(),
-										analysisInfoLocal));
+						Unit analysisInfoTagInit = Jimple.v().newInvokeStmt(Jimple.v()
+								.newSpecialInvokeExpr(analysisTagLocal, Scene.v().makeMethodRef(
+										Scene.v().getSootClass("soot.jimple.changeset.AnalysisInfoTag"), "<init>",
+										Arrays.asList(new Type[] { RefType.v("soot.jimple.changeset.AnalysisInfo") }),
+										VoidType.v(), false), analysisInfoLocal));
 
-						Unit setClassName = Jimple.v()
-								.newInvokeStmt(Jimple.v().newVirtualInvokeExpr(analysisInfoLocal, Scene.v()
-										.getMethod("<AnalysisInfo: void setClassName(java.lang.String)>").makeRef(),
-										StringConstant.v(data.getSootClass().getName())));
-						Unit setCondition = Jimple.v()
-								.newInvokeStmt(Jimple.v().newVirtualInvokeExpr(analysisInfoLocal, Scene.v()
-										.getMethod("<AnalysisInfo: void setCondition(java.util.HashMap)>").makeRef(),
-										mapLocal));
+						Unit setClassName = Jimple.v().newInvokeStmt(Jimple.v().newVirtualInvokeExpr(analysisInfoLocal,
+								Scene.v().makeMethodRef(Scene.v().getSootClass("soot.jimple.changeset.AnalysisInfo"),
+										"setClassName", Arrays.asList(new Type[] { RefType.v("java.lang.String") }),
+										VoidType.v(), false),
+								StringConstant.v(data.getSootClass().getName())));
 
-						Unit setMethodName = Jimple.v()
-								.newInvokeStmt(Jimple.v().newVirtualInvokeExpr(analysisInfoLocal, Scene.v()
-										.getMethod("<AnalysisInfo: void setMethodName(java.lang.String)>").makeRef(),
-										StringConstant.v(method.getSignature())));
+						Unit setCondition = Jimple.v().newInvokeStmt(Jimple.v().newVirtualInvokeExpr(analysisInfoLocal,
+								Scene.v().makeMethodRef(Scene.v().getSootClass("soot.jimple.changeset.AnalysisInfo"),
+										"setCondition", Arrays.asList(new Type[] { RefType.v("java.util.HashMap") }),
+										VoidType.v(), false),
+								mapLocal));
+
+						Unit setMethodName = Jimple.v().newInvokeStmt(Jimple.v().newVirtualInvokeExpr(analysisInfoLocal,
+								Scene.v().makeMethodRef(Scene.v().getSootClass("soot.jimple.changeset.AnalysisInfo"),
+										"setMethodName", Arrays.asList(new Type[] { RefType.v("java.lang.String") }),
+										VoidType.v(), false),
+								StringConstant.v(method.getSignature())));
 
 						Unit tagInterfaceInvoke = Jimple.v()
 								.newInvokeStmt(Jimple.v().newInterfaceInvokeExpr(unitParam,
@@ -269,8 +312,6 @@ public class Agent {
 								Scene.v().getMethod("<java.util.HashMap: void <init>()>").makeRef()));
 
 						Unit lastParam = ((JimpleBody) methodBody).getFirstNonIdentityStmt();
-						System.out.println("The class is "+sootClass.getName());
-						System.out.println("The lastparam is "+lastParam);
 						units.insertBefore(arrayListNew, lastParam);
 						units.insertAfter(arrayListInit, arrayListNew);
 						units.insertAfter(analysisInfoNew, arrayListInit);
@@ -282,11 +323,14 @@ public class Agent {
 						units.insertAfter(setMethodName, setCondition);
 						units.insertAfter(tagInterfaceInvoke, analysisInfoTagInit);
 					}
+					//System.out.println("Unit loop 2 elapsed = " + (System.nanoTime() - start));
 				}
 
 			}
 			if (shouldWrite) {
+				//long startTime = System.nanoTime();
 				WriteToClass(sootClass);
+				//System.out.println("Write file " + (System.nanoTime() - startTime));
 			}
 		}
 
@@ -295,13 +339,13 @@ public class Agent {
 	private static void WriteToClass(SootClass sootClass) {
 		try {
 			String classFile = SourceLocator.v().getFileNameFor(sootClass, Options.output_format_class);
-			sootClass.getMethods().forEach((mtd) -> {
-				if (mtd.hasActiveBody()) {
-					mtd.retrieveActiveBody();
-				} else {
-					return;
-				}
-			});
+//			sootClass.getMethods().forEach((mtd) -> {
+//				if (mtd.hasActiveBody()) {
+//					mtd.retrieveActiveBody();
+//				} else {
+//					return;
+//				}
+//			});
 			OutputStream streamOut = new JasminOutputStream(new FileOutputStream(classFile));
 			PrintWriter writerOut = new PrintWriter(new OutputStreamWriter(streamOut));
 			JasminClass jasminClass = new soot.jimple.JasminClass(sootClass);
