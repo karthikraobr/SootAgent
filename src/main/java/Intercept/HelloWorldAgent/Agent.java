@@ -30,10 +30,10 @@ import java.io.*;
 import heros.InterproceduralCFG;
 
 public class Agent {
-	public static final String SuperClass = "soot.toolkits.scalar.UpdateableForwardFlowAnalysis";
-	public static final String Updated = "updated";
-	public static final String FlowThrough = "flowThrough";
-	public static final String Volatile = "volatile";
+	private static final String SuperClass = "soot.toolkits.scalar.UpdateableForwardFlowAnalysis";
+	private static final String Updated = "updated";
+	private static final String FlowThrough = "flowThrough";
+	private static final String Volatile = "volatile";
 
 	public static void findReachableMethods(SootMethod source, InterproceduralCFG<Unit, SootMethod> icfg,
 			List<SootMethod> mtdLst) {
@@ -75,12 +75,16 @@ public class Agent {
 							&& !cls.getPackageName().contains(Updated)) {
 						for (SootMethod mtd : cls.getMethods()) {
 							if (mtd.getName().equals(FlowThrough) && !mtd.getDeclaration().contains(Volatile)) {
+								reachableMethods.add(mtd);
 								findReachableMethods(mtd, icfg, reachableMethods);
 								break;
 							}
 						}
 					}
 
+				}
+				for(SootMethod sm : reachableMethods) {
+					System.out.println(sm.getName());
 				}
 				for (SootMethod mtd : reachableMethods) {
 					List<Unit> units = new ArrayList<Unit>();
@@ -89,7 +93,7 @@ public class Agent {
 					Body mtdBody = mtd.retrieveActiveBody();
 					IfElseFinder finder = new IfElseFinder(mtdBody);
 					finder.doAnalysis();
-					for (Unit unit : mtdBody.getUnits().parallelStream().filter(x -> x.hasTag("ConditionTag"))
+					for (Unit unit : mtdBody.getUnits().stream().filter(x -> x.hasTag("ConditionTag"))
 							.collect(Collectors.toList())) {
 						units.add(unit);
 					}
@@ -117,14 +121,11 @@ public class Agent {
 		Scene.v().addBasicClass("soot.jimple.changeset.AnalysisInfo", SootClass.BODIES);
 		Scene.v().addBasicClass("soot.jimple.changeset.AnalysisInfoTag", SootClass.BODIES);
 
-		String[] targets = targetDir.split(",");
-		File src = new File(targets[0]);
-		File src2 = new File(targets[1]);
+		File src = new File(targetDir);
 		File parent = src.getParentFile();
 		File sootOutput = new File(parent, "sootOutput");
 		try {
 			FileUtils.copyDirectory(src, sootOutput);
-			FileUtils.copyDirectory(src2, sootOutput);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -134,7 +135,7 @@ public class Agent {
 		PackManager.v().getPack("wjtp").add(transform);
 		Main.main(new String[] { "-pp", "-process-dir", sootOutput.getAbsolutePath(), "-w", "-exclude", "javax",
 				"-allow-phantom-refs", "-output-dir", sootOutput.getAbsolutePath(), "-no-bodies-for-excluded",
-				"-src-prec", "only-class", "-output-format", "none", "-p", "jb", "use-original-names:true" });
+				"-src-prec", "only-class", "-output-format", "J", "-p", "jb", "use-original-names:true" });
 	}
 
 	public static void premain(String agentArgs, Instrumentation inst) {
@@ -149,6 +150,7 @@ public class Agent {
 			boolean shouldWrite = false;
 			SootClass sootClass = data.getSootClass();
 			for (SootMethod method : data.getSootMethodData().keySet()) {
+
 				List<Unit> filteredUnits = data.getSootMethodData().get(method);
 				Body methodBody = method.getActiveBody();
 				PatchingChain<Unit> units = methodBody.getUnits();
@@ -186,43 +188,44 @@ public class Agent {
 						isExecuted = true;
 					}
 					for (Unit unit : filteredUnits) {
-						List<Tag> ifStmts = unit.getTags().parallelStream()
-								.filter(x -> x.getName().equals("ConditionTag")).collect(Collectors.toList());
+						if(!(unit instanceof ReturnVoidStmt)) {
+						List<Tag> ifStmts = unit.getTags().stream().filter(x -> x.getName().equals("ConditionTag"))
+								.collect(Collectors.toList());
 						for (Tag tag : ifStmts) {
 							ConditionTag conditionTag = (ConditionTag) tag;
 							IfStmt ifStmt = (IfStmt) conditionTag.getIfStmt();
+							//System.out.println("Target is " + ifStmt.getTarget());
 							int boolIntValue = (conditionTag.getBranch()) ? 1 : 0;
-							Unit branch = Jimple.v().newAssignStmt(conditionRef,
-									DIntConstant.v(boolIntValue, BooleanType.v()));
-							Unit lineNumberObjVal = Jimple.v().newAssignStmt(boolRef,
-									Jimple.v().newStaticInvokeExpr(
-											Scene.v().makeMethodRef(Scene.v().getSootClass("java.lang.Boolean"),
-													"valueOf", Arrays.asList(new Type[] { BooleanType.v() }),
-													RefType.v("java.lang.Boolean"), true),
-											conditionRef));
+							//if (!conditionTag.getBranch() && (ifStmt.getTarget() instanceof ReturnVoidStmt)) {
+								Unit branch = Jimple.v().newAssignStmt(conditionRef,
+										DIntConstant.v(boolIntValue, BooleanType.v()));
+								Unit lineNumberObjVal = Jimple.v().newAssignStmt(boolRef,
+										Jimple.v()
+												.newStaticInvokeExpr(Scene.v().makeMethodRef(
+														Scene.v().getSootClass("java.lang.Boolean"), "valueOf",
+														Arrays.asList(new Type[] { BooleanType.v() }),
+														RefType.v("java.lang.Boolean"), true), conditionRef));
 
-							Unit jimpleVal = Jimple.v().newAssignStmt(jimpleRep,
-									StringConstant.v(ifStmt.getCondition().toString()));
-							Unit lineNumberAdd = Jimple.v()
-									.newInvokeStmt(Jimple.v().newVirtualInvokeExpr(mapLocal,
-											Scene.v().makeMethodRef(Scene.v().getSootClass("java.util.HashMap"), "put",
-													Arrays.asList(new Type[] { RefType.v("java.lang.Object"),
-															RefType.v("java.lang.Object") }),
-													RefType.v("java.lang.Object"), false),
-											jimpleRep, boolRef));
-							units.insertBefore(branch, unit);
-							units.insertAfter(lineNumberObjVal, branch);
-							units.insertAfter(jimpleVal, lineNumberObjVal);
-							units.insertAfter(lineNumberAdd, jimpleVal);
-							isExecuted = true;
+								Unit jimpleVal = Jimple.v().newAssignStmt(jimpleRep,
+										StringConstant.v(ifStmt.getCondition().toString()));
+								Unit lineNumberAdd = Jimple.v().newInvokeStmt(Jimple.v().newVirtualInvokeExpr(mapLocal,
+										Scene.v().makeMethodRef(Scene.v().getSootClass("java.util.HashMap"), "put",
+												Arrays.asList(new Type[] { RefType.v("java.lang.Object"),
+														RefType.v("java.lang.Object") }),
+												RefType.v("java.lang.Object"), false),
+										jimpleRep, boolRef));
+								units.insertBefore(branch, unit);
+								units.insertAfter(lineNumberObjVal, branch);
+								units.insertAfter(jimpleVal, lineNumberObjVal);
+								units.insertAfter(lineNumberAdd, jimpleVal);
+								isExecuted = true;
+							}
 						}
 					}
 					if (isExecuted) {
 						shouldWrite = true;
 						Unit analysisInfoNew = Jimple.v().newAssignStmt(analysisInfoLocal,
 								Jimple.v().newNewExpr(RefType.v("soot.jimple.changeset.AnalysisInfo")));
-
-						;
 						Unit analysisInfoInit = Jimple.v()
 								.newInvokeStmt(Jimple.v().newSpecialInvokeExpr(analysisInfoLocal,
 										Scene.v().makeMethodRef(
@@ -258,7 +261,9 @@ public class Agent {
 
 						Unit tagInterfaceInvoke = Jimple.v()
 								.newInvokeStmt(Jimple.v().newInterfaceInvokeExpr(unitParam,
-										Scene.v().getMethod("<soot.Unit: void addTag(soot.tagkit.Tag)>").makeRef(),
+										Scene.v().makeMethodRef(Scene.v().getSootClass("soot.Unit"), "addTag",
+												Arrays.asList(new Type[] { RefType.v("soot.tagkit.Tag") }),
+												VoidType.v(), false),
 										analysisTagLocal));
 
 						Unit arrayListNew = Jimple.v().newAssignStmt(mapLocal,
