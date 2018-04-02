@@ -1,4 +1,4 @@
-package Intercept.HelloWorldAgent;
+package de.incremental.intraprocedural;
 
 import java.util.List;
 import java.util.Map;

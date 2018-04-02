@@ -53,7 +53,7 @@
 					</descriptorRefs>
 					<archive>
 						<manifestEntries>
-							<Premain-Class>Intercept.HelloWorldAgent.Agent</Premain-Class>
+							<Premain-Class>de.incremental.intraprocedural.Agent</Premain-Class>
 							<Can-Redefine-Classes>true</Can-Redefine-Classes>
 							<Can-Retransform-Classes>true</Can-Retransform-Classes>
 							<Can-Set-Native-Method-Prefix>true</Can-Set-Native-Method-Prefix>

@@ -1,4 +1,4 @@
-package Intercept.HelloWorldAgent;
+package de.incremental.intraprocedural;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
