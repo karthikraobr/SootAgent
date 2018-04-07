@@ -2,12 +2,12 @@
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
-	<groupId>Intercept</groupId>
-	<artifactId>HelloWorldAgent</artifactId>
+	<groupId>de.fraunhofer.incremental.intraprocedural</groupId>
+	<artifactId>Agent</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<packaging>jar</packaging>
 
-	<name>HelloWorldAgent</name>
+	<name>Agent</name>
 	<url>http://maven.apache.org</url>
 
 	<properties>
@@ -53,7 +53,7 @@
 					</descriptorRefs>
 					<archive>
 						<manifestEntries>
-							<Premain-Class>de.incremental.intraprocedural.Agent</Premain-Class>
+							<Premain-Class>de.fraunhofer.incremental.intraprocedural.Agent</Premain-Class>
 							<Can-Redefine-Classes>true</Can-Redefine-Classes>
 							<Can-Retransform-Classes>true</Can-Retransform-Classes>
 							<Can-Set-Native-Method-Prefix>true</Can-Set-Native-Method-Prefix>

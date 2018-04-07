@@ -1,4 +1,4 @@
-package de.incremental.intraprocedural;
+package de.fraunhofer.incremental.intraprocedural;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -123,7 +123,8 @@ public class Agent {
 
 		File src = new File(targetDir);
 		File parent = src.getParentFile();
-		File sootOutput = new File(parent, "sootOutput");
+		File grandParent = parent.getParentFile();
+		File sootOutput = new File(grandParent, "sootOutput");
 		try {
 			FileUtils.copyDirectory(src, sootOutput);
 		} catch (IOException e) {

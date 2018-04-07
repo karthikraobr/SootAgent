@@ -1,4 +1,4 @@
-package de.incremental.intraprocedural;
+package de.fraunhofer.incremental.intraprocedural;
 
 import java.util.List;
 import java.util.Map;
